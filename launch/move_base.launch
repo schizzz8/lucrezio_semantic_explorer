@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<launch>
+  <master auto="start"/>
+
+  <!-- Map Server 
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find lucrezio_semantic_explorer)/maps/simulated_dataset.yaml" output="screen"/>
+  -->
+  <!-- ********************************************************************************** -->
+
+
+  
+  <!-- Localizer 
+  <node pkg="thin_navigation" type="thin_localizer_node" respawn="false" name="localizer_node" output="screen">
+    <param name="laser_topic" value="scan"/> 
+    <param name="initial_pose_x" value="-0.166" />   
+    <param name="initial_pose_y" value="0.077" />   
+    <param name="initial_pose_a" value="0.000" />   
+  </node>
+  -->
+  <!-- ********************************************************************************** -->
+
+
+
+  <!-- Joy Teleop 
+  <node name="lucrezio_joy_teleop" pkg="thin_joystick_teleop" type="joy_teleop_node" >
+    <param name="command_vel_topic" value="/lucrezio/input/teleop" />
+  </node>
+  -->
+
+
+
+  <!-- Joy Teleop with Safety Controls 
+  <node name="joy_node" pkg="joy" type="joy_node" output="screen" >
+    <param name="~deadzone" type="double" value="0.2"/> 
+    <param name="~autorepeat_rate" type="double" value="20."/> 
+    <param name="~dev" type="str" value="/dev/input/js0"/>	
+  </node>
+
+  <node name="joystick_control" pkg="joystick_control" type="joystick_control" output="screen" >
+    <param name="in_cmd_vel" value="/lucrezio/desired_cmd_vel"/> 
+    <param name="out_cmd_vel" value="/lucrezio/cmd_vel"/> 
+    <param name="joy_topic" value="/joy"/>
+    <param name="joy_linear_speed_scale" value="1"/>
+    <param name="joy_angular_speed_scale" value="1"/>	
+  </node>
+  -->
+  <!-- ********************************************************************************** -->
+
+
+
+  <!-- Move Base -->
+  <arg name="odom_frame_id"   default="odom"/>
+  <arg name="base_frame_id"   default="base_link"/>
+  <arg name="global_frame_id" default="map"/>
+  <arg name="odom_topic" default="lucrezio/odom" />
+  <arg name="cmd_vel_topic" default="lucrezio/cmd_vel"/>
+  <arg name="laser_topic" default="scan" />
+  
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />   
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/local_costmap_params.yaml" command="load" />   
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/dwa_local_planner_params.yaml" command="load" />
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/move_base_params.yaml" command="load" />
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/global_planner_params.yaml" command="load" />
+    <rosparam file="$(find lucrezio_semantic_explorer)/param/navfn_global_planner_params.yaml" command="load" />
+    
+    <param name="global_costmap/global_frame" value="$(arg global_frame_id)"/>
+    <param name="global_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+    <param name="local_costmap/global_frame" value="$(arg odom_frame_id)"/>
+    <param name="local_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+    <param name="DWAPlannerROS/global_frame_id" value="$(arg odom_frame_id)"/>
+
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+    <remap from="odom" to="$(arg odom_topic)"/>
+    <remap from="scan" to="$(arg laser_topic)"/>
+  </node>
+  <!-- ********************************************************************************** -->
+
+
+
+  <!-- RVIZ -->
+  <arg name="rvizconfig" default="$(find lucrezio_semantic_explorer)/rviz/lucrezio_move_base.rviz" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+  <!-- ********************************************************************************** -->
+
+</launch>
