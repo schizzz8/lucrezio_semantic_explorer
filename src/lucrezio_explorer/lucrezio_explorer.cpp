@@ -24,8 +24,6 @@ void LucrezioExplorer::computeNextPoses(){
   }
 
   std::cerr << std::endl;
-  ROS_DEBUG("Compute next pose!");
-  std::cerr << std::endl;
   std::cerr << "Grid" << std::endl;
   std::cerr << "Resolution: " << resolution << std::endl;
   std::cerr << "Dimesions: " << occupancy_grid.rows << "x" << occupancy_grid.cols << std::endl;
@@ -51,11 +49,11 @@ bool LucrezioExplorer::listenRobotPose(Eigen::Isometry3f &robot_pose){
   tf::StampedTransform robot_tf;
   try {
     listener.waitForTransform("map",
-                               "base_link",
+                               "base_footprint",
                                ros::Time(0),
                                ros::Duration(3));
     listener.lookupTransform("map",
-                              "base_link",
+                              "base_footprint",
                               ros::Time(0),
                               robot_tf);
   }

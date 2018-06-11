@@ -15,6 +15,7 @@ void FrontierDetector::init(){
   _frontier_points.clear();
   _frontier_regions.clear();
   _frontier_centroids.clear();
+  _frontier_scored_centroids = ScoredCellQueue();
 }
 
 void FrontierDetector::computeFrontierPoints(){
@@ -94,22 +95,30 @@ void FrontierDetector::rankFrontierCentroids(){
   for(const Eigen::Vector2i &frontier_centroid : _frontier_centroids){
 
     const Eigen::Vector2i diff = frontier_centroid - robot_position;
+    float distance_to_robot = diff.norm();
 
-    float distance = diff.norm();
-    if(distance < _config.distance_threshold)
+    if(distance_to_robot < _config.distance_threshold)
       continue;
 
-    float angle = std::cos(angleDifference(robot_orientation,std::atan2(diff.y(),diff.x())));
-    std::cerr << angle << std::endl;
-    if(angle < _config.angle_threshold)
+    float angle_to_robot = std::cos(angleDifference(robot_orientation,std::atan2(diff.y(),diff.x())));
+    if(angle_to_robot < _config.angle_threshold)
       continue;
+
+    float distance_to_obstacle = std::fabs(distance_image.at<float>(frontier_centroid.y(),frontier_centroid.x()));
 
     ScoredCell scored_centroid;
     scored_centroid.cell = frontier_centroid;
-    scored_centroid.score = distance_image.at<float>(frontier_centroid.y(),frontier_centroid.x());
+    float score = distance_to_robot*(1/angle_to_robot)*distance_to_obstacle;
 
+    std::cerr << "distance_to_robot: " << distance_to_robot << std::endl;
+    std::cerr << "angle_to_robot: " << angle_to_robot << std::endl;
+    std::cerr << "distance_to_obstacle: " << distance_to_obstacle << std::endl;
 
-    if(scored_centroid.score >= _config.centroid_minimum_score)
+    std::cerr << "score: " << score << std::endl;
+
+    scored_centroid.score = score;
+
+    if(scored_centroid.score > _config.centroid_minimum_score)
       _frontier_scored_centroids.push(scored_centroid);
 
   }

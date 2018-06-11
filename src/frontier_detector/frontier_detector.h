@@ -31,7 +31,7 @@ class FrontierDetector{
         int min_neighbors_threshold = 1;
         int size_threshold = 10;
         float radius=1.0;
-        float distance_threshold = 20;
+        float distance_threshold = 60;
         float angle_threshold = 0.6;
         float centroid_minimum_score = 0;
     };
