@@ -56,7 +56,7 @@ int main(int argc, char **argv){
   //compute and rank frontier centroids
   detector.computeFrontierCentroids();
   detector.rankFrontierCentroids();
-  ScoredCellQueue &scored_centroids = detector.frontierScoredCentroids();
+  ScoredCellQueue scored_centroids = detector.frontierScoredCentroids();
 
   RGBImage scored_centroids_image;
   occupancy_rgb.copyTo(scored_centroids_image);

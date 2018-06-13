@@ -1,4 +1,3 @@
 add_subdirectory(frontier_detector)
-add_subdirectory(apps)
-add_subdirectory(lucrezio_explorer)
+#add_subdirectory(apps)
 add_subdirectory(nodes)

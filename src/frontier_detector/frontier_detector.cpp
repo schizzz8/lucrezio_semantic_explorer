@@ -2,15 +2,18 @@
 
 using namespace srrg_core;
 
-FrontierDetector::FrontierDetector(){
+void FrontierDetector::setup(){
   _resolution = 0.0f;
   _origin.setZero();
+  _rows = 0;
+  _cols = 0;
 
   _robot_pose = Eigen::Isometry3f::Identity();
 }
 
 void FrontierDetector::init(){
   assert(_resolution != 0 && "[FrontierDetector][init]: Zero grid resolution!");
+  assert(_rows != 0 && _cols != 0 && "[FrontierDetector][init]: Image not set");
 
   _frontier_points.clear();
   _frontier_regions.clear();
@@ -18,11 +21,18 @@ void FrontierDetector::init(){
   _frontier_scored_centroids = ScoredCellQueue();
 }
 
+void FrontierDetector::compute(){
+  //compute
+  computeFrontierPoints();
+  computeFrontierRegions();
+  computeFrontierCentroids();
+  rankFrontierCentroids();
+}
+
 void FrontierDetector::computeFrontierPoints(){
 
   Eigen::Vector2i cell;
   Vector2iVector neighbors;
-  Vector2iVector neighbors_of_neighbor;
 
   for(int r=0; r<_rows; ++r){
     const unsigned char *occupancy_ptr = _occupancy_grid.ptr<unsigned char>(r);
@@ -37,18 +47,10 @@ void FrontierDetector::computeFrontierPoints(){
 
       getColoredNeighbors(neighbors,cell,Occupancy::UNKNOWN);
 
-      if(neighbors.empty())
+      if(neighbors.empty() || neighbors.size() < 2)
         continue;
 
-      for(const Eigen::Vector2i &neighbor : neighbors){
-        getColoredNeighbors(neighbors_of_neighbor, neighbor, Occupancy::UNKNOWN);
-
-        if(neighbors_of_neighbor.size() >= _config.min_neighbors_threshold){
-          _frontier_points.push_back(cell);
-          break;
-        }
-      }
-
+      _frontier_points.push_back(cell);
     }
   }
 }
@@ -65,6 +67,8 @@ void FrontierDetector::computeFrontierRegions(){
     }
     it = frontiers.begin();
   }
+
+  std::cerr << "Detected " << _frontier_regions.size() << " frontier regions" << std::endl;
 }
 
 void FrontierDetector::computeFrontierCentroids(){
@@ -90,36 +94,32 @@ void FrontierDetector::rankFrontierCentroids(){
   indices2distances(distance_image,indices_image,_resolution,_config.radius);
 
   Eigen::Vector2i robot_position = ((_robot_pose.translation().head(2)-_origin)/_resolution).cast<int>();
+  Eigen::Vector2i robot_cell (_rows - robot_position.y(), robot_position.x());
   float robot_orientation = _robot_pose.linear().eulerAngles(0,1,2).z();
 
   for(const Eigen::Vector2i &frontier_centroid : _frontier_centroids){
 
-    const Eigen::Vector2i diff = frontier_centroid - robot_position;
+    const Eigen::Vector2i diff = frontier_centroid - robot_cell;
     float distance_to_robot = diff.norm();
-
-    if(distance_to_robot < _config.distance_threshold)
-      continue;
+//    if(distance_to_robot < _config.d2r_threshold)
+//      continue;
 
     float angle_to_robot = std::cos(angleDifference(robot_orientation,std::atan2(diff.y(),diff.x())));
-    if(angle_to_robot < _config.angle_threshold)
-      continue;
+//    if(angle_to_robot < _config.angle_threshold)
+//      continue;
 
     float distance_to_obstacle = std::fabs(distance_image.at<float>(frontier_centroid.y(),frontier_centroid.x()));
+
+    if(distance_to_obstacle < _config.d2o_threshold)
+      continue;
 
     ScoredCell scored_centroid;
     scored_centroid.cell = frontier_centroid;
     float score = distance_to_robot*(1/angle_to_robot)*distance_to_obstacle;
 
-    std::cerr << "distance_to_robot: " << distance_to_robot << std::endl;
-    std::cerr << "angle_to_robot: " << angle_to_robot << std::endl;
-    std::cerr << "distance_to_obstacle: " << distance_to_obstacle << std::endl;
-
-    std::cerr << "score: " << score << std::endl;
-
     scored_centroid.score = score;
 
-    if(scored_centroid.score > _config.centroid_minimum_score)
-      _frontier_scored_centroids.push(scored_centroid);
+    _frontier_scored_centroids.push(scored_centroid);
 
   }
 }
@@ -129,7 +129,6 @@ void FrontierDetector::getColoredNeighbors(Vector2iVector &neighbors,
                                            const Occupancy &value){
 
   neighbors.clear();
-
   for (int r = -1; r <= 1; ++r) {
     for (int c = -1; c <= 1; ++c) {
 
@@ -142,7 +141,6 @@ void FrontierDetector::getColoredNeighbors(Vector2iVector &neighbors,
       if ( rr < 0 || rr >= _rows ||
            cc < 0 || cc >= _cols)
         continue;
-
 
       if (_occupancy_grid.at<unsigned char>(rr,cc) == value)
         neighbors.push_back(Eigen::Vector2i(cc,rr));

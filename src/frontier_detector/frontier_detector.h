@@ -14,11 +14,9 @@ typedef std::list<Eigen::Vector2i, Eigen::aligned_allocator<Eigen::Vector2i> > V
 
 struct ScoredCell {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
     bool operator<(const ScoredCell& sc) const {
       return score < sc.score;
     }
-
     float score;
     Eigen::Vector2i cell;
 };
@@ -28,40 +26,34 @@ class FrontierDetector{
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     struct Configuration{
-        int min_neighbors_threshold = 1;
+        int min_neighbors_threshold = 3;
         int size_threshold = 10;
         float radius=1.0;
-        float distance_threshold = 60;
+        float d2r_threshold = 60;
+        float d2o_threshold = 0.5;
         float angle_threshold = 0.6;
         float centroid_minimum_score = 0;
     };
 
-    FrontierDetector();
+    inline void setRobotPose(const Eigen::Isometry3f &robot_pose_){_robot_pose = robot_pose_;}
+    inline void setResolution(float resolution_){_resolution = resolution_;}
+    inline void setOrigin(const Eigen::Vector2f &origin_){_origin = origin_;}
+    inline void setMap(const srrg_core::UnsignedCharImage &occupancy_grid_){_occupancy_grid = occupancy_grid_.clone();
+                                                                            _rows = occupancy_grid_.rows;_cols = occupancy_grid_.cols;}
+
+    void setup();
+    void init();
+    void compute();
 
     inline Configuration& mutableConfig(){return _config;}
-
     inline const float &resolution() const {return _resolution;}
     inline const Eigen::Vector2f &origin() const {return _origin;}
     inline const srrg_core::UnsignedCharImage &occupancyGrid() const {return _occupancy_grid;}
     inline const Eigen::Isometry3f &robotPose() const {return _robot_pose;}
-
-    inline void setRobotPose(const Eigen::Isometry3f &robot_pose_){_robot_pose = robot_pose_;}
-    inline void setResolution(float resolution_){_resolution = resolution_;}
-    inline void setOrigin(const Eigen::Vector2f &origin_){_origin = origin_;}
-    inline void setMap(const srrg_core::UnsignedCharImage &occupancy_grid_){occupancy_grid_.copyTo(_occupancy_grid);
-                                                                            _rows = occupancy_grid_.rows;_cols = occupancy_grid_.cols;}
-
-    void init();
-
-    void computeFrontierPoints();
-    void computeFrontierRegions();
-    void computeFrontierCentroids();
-    void rankFrontierCentroids();
-
     inline const srrg_core::Vector2iVector &frontierPoints() const {return _frontier_points;}
     inline const RegionVector &frontierRegions() const {return _frontier_regions;}
     inline const srrg_core::Vector2iVector &frontierCentroids() const {return _frontier_centroids;}
-    inline ScoredCellQueue &frontierScoredCentroids() {return _frontier_scored_centroids;}
+    inline const ScoredCellQueue &frontierScoredCentroids() {return _frontier_scored_centroids;}
 
   protected:
 
@@ -81,6 +73,11 @@ class FrontierDetector{
     ScoredCellQueue _frontier_scored_centroids;
 
   private:
+    void computeFrontierPoints();
+    void computeFrontierRegions();
+    void computeFrontierCentroids();
+    void rankFrontierCentroids();
+
     void getColoredNeighbors(srrg_core::Vector2iVector &neighbors, const Eigen::Vector2i &cell, const Occupancy &value);
     void recurRegion(const Vector2iList::iterator &frontier_it, srrg_core::Vector2iVector &region, Vector2iList &frontiers);
     inline float angleDifference(float a1, float a2) {
