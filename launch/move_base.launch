@@ -17,7 +17,6 @@
     <rosparam file="$(find lucrezio_semantic_explorer)/param/global_costmap_params.yaml" command="load" />
     <rosparam file="$(find lucrezio_semantic_explorer)/param/dwa_local_planner_params.yaml" command="load" />
     <rosparam file="$(find lucrezio_semantic_explorer)/param/move_base_params.yaml" command="load" />
-    <rosparam file="$(find lucrezio_semantic_explorer)/param/global_planner_params.yaml" command="load" />
     <rosparam file="$(find lucrezio_semantic_explorer)/param/navfn_global_planner_params.yaml" command="load" />
     
     <param name="global_costmap/global_frame" value="$(arg global_frame_id)"/>

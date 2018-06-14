@@ -10,6 +10,8 @@
 #include <visualization_msgs/Marker.h>
 #include <frontier_detector/frontier_detector.h>
 
+#include <geometry_msgs/Twist.h>
+
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector2f &next_pose);
 visualization_msgs::Marker makeRVizMarker(const Eigen::Vector2f &next_pose);
@@ -43,6 +45,8 @@ int main(int argc, char **argv){
   FrontierDetector detector;
 
   bool success = false;
+
+  ros::Publisher cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("/lucrezio/cmd_vel",10);
 
   while(ros::ok() && !success){
 
@@ -105,8 +109,21 @@ int main(int argc, char **argv){
       if (finished_before_timeout){
         actionlib::SimpleClientGoalState state = ac.getState();
         ROS_INFO("Action finished: %s",state.toString().c_str());
-        if(state.toString().compare("SUCCEEDED") == 0)
+        if(state.toString().compare("SUCCEEDED") == 0){
           reached = true;
+          for(int i=0; i<4; ++i){
+            geometry_msgs::Twist cmd;
+            cmd.angular.z = 0.8;
+            ros::Duration interval(1.8);
+            ros::Time init_time = ros::Time::now();
+            while(ros::Time::now()<(init_time+interval)){
+              cmd_vel_pub.publish(cmd);
+            }
+            cmd.angular.z = 0;
+            cmd_vel_pub.publish(cmd);
+            ros::Duration(4).sleep();
+          }
+        }
       }
       else{
         ROS_INFO("Action did not finish before the time out.");
