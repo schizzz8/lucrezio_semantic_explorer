@@ -101,8 +101,8 @@ void FrontierDetector::rankFrontierCentroids(){
 
     const Eigen::Vector2i diff = frontier_centroid - robot_cell;
     float distance_to_robot = diff.norm();
-//    if(distance_to_robot < _config.d2r_threshold)
-//      continue;
+    if(distance_to_robot < _config.d2r_threshold)
+      continue;
 
     float angle_to_robot = std::cos(angleDifference(robot_orientation,std::atan2(diff.y(),diff.x())));
 //    if(angle_to_robot < _config.angle_threshold)

@@ -113,10 +113,10 @@ int main(int argc, char **argv){
       }
     }
 
-    if(scored_centroids.empty()){
-      success = true;
-      continue;
-    }
+//    if(scored_centroids.empty()){
+//      success = true;
+//      continue;
+//    }
   }
 
   ROS_INFO("Exploration complete!");
