@@ -50,13 +50,17 @@ int main(int argc, char **argv){
 
   while(ros::ok() && !success){
 
-    if(listenRobotPose(robot_pose)){
+    if(!listenRobotPose(robot_pose))
+      continue;
+    else {
       ROS_INFO("Received robot pose!");
       std::cerr << "Position: " << robot_pose.translation().head(2).transpose() << std::endl;
       std::cerr << "Orientation: " << robot_pose.linear().eulerAngles(0,1,2).z() << std::endl;
     }
 
-    if(receiveOccupancyGridMsg(resolution,origin,occupancy_grid)){
+    if(!receiveOccupancyGridMsg(resolution,origin,occupancy_grid))
+      continue;
+    else{
       ROS_INFO("Received occupancy grid!");
       std::cerr << "Resolution: " << resolution << std::endl;
       std::cerr << "Dimesions: " << occupancy_grid.rows << "x" << occupancy_grid.cols << std::endl;
@@ -130,10 +134,10 @@ int main(int argc, char **argv){
       }
     }
 
-//    if(scored_centroids.empty()){
-//      success = true;
-//      continue;
-//    }
+    //    if(scored_centroids.empty()){
+    //      success = true;
+    //      continue;
+    //    }
   }
 
   ROS_INFO("Exploration complete!");
@@ -181,35 +185,35 @@ bool receiveOccupancyGridMsg(float &resolution,
   boost::shared_ptr<nav_msgs::OccupancyGrid const> occupancy_grid_msg_ptr;
   occupancy_grid_msg_ptr = ros::topic::waitForMessage<nav_msgs::OccupancyGrid> ("/map", ros::Duration (10));
 
-  if(occupancy_grid_msg_ptr == NULL){
+  if(!occupancy_grid_msg_ptr){
     ROS_ERROR("No occupancy_grid message received!");
     return false;
-  } else {
-
-    resolution = occupancy_grid_msg_ptr->info.resolution;
-    origin << occupancy_grid_msg_ptr->info.origin.position.x,occupancy_grid_msg_ptr->info.origin.position.y;
-
-    //convert to cv::Mat
-    int width = occupancy_grid_msg_ptr->info.width;
-    int height = occupancy_grid_msg_ptr->info.height;
-    occupancy_grid.create(height,width);
-    for (int i = 0, i_rev = height - 1; i < height; i++, i_rev--)
-      for (int j = 0; j < width; j++)
-        switch (occupancy_grid_msg_ptr->data[i_rev*width + j]) {
-          default:
-          case -1:
-            occupancy_grid.data[i*width + j] = Occupancy::UNKNOWN;
-            break;
-          case 0:
-            occupancy_grid.data[i*width + j] = Occupancy::FREE;
-            break;
-          case 100:
-            occupancy_grid.data[i*width + j] = Occupancy::OCCUPIED;
-            break;
-        }
-
-    return true;
   }
+
+  resolution = occupancy_grid_msg_ptr->info.resolution;
+  origin << occupancy_grid_msg_ptr->info.origin.position.x,occupancy_grid_msg_ptr->info.origin.position.y;
+
+  //convert to cv::Mat
+  int width = occupancy_grid_msg_ptr->info.width;
+  int height = occupancy_grid_msg_ptr->info.height;
+  occupancy_grid.create(height,width);
+  for (int i = 0, i_rev = height - 1; i < height; i++, i_rev--)
+    for (int j = 0; j < width; j++)
+      switch (occupancy_grid_msg_ptr->data[i_rev*width + j]) {
+        default:
+        case -1:
+          occupancy_grid.data[i*width + j] = Occupancy::UNKNOWN;
+          break;
+        case 0:
+          occupancy_grid.data[i*width + j] = Occupancy::FREE;
+          break;
+        case 100:
+          occupancy_grid.data[i*width + j] = Occupancy::OCCUPIED;
+          break;
+      }
+
+  return true;
+
 }
 
 void showOutput(const Eigen::Vector3f &position,
