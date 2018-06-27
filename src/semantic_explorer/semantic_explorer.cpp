@@ -1,43 +1,69 @@
 #include "semantic_explorer.h"
 
-void SemanticExplorer::init(){
-  assert(_semantic_map.size() !=0 && "[SemanticExplorer][init] Empty semantic map!");
-  _poses.clear();
+void SemanticExplorer::setup(){
+  _robot_pose.setIdentity();
+  _objects.clear();
+  _processed.clear();
+  _nearest_object = 0;
 }
 
-void SemanticExplorer::setSemanticMap(const SemanticMap &semantic_map_){
+void SemanticExplorer::setObjects(const SemanticMap &semantic_map_){
   for(size_t i=0; i<semantic_map_.size(); ++i){
     const Object &o = *(semantic_map_[i]);
-    ObjectSet::iterator it = _semantic_map.find(o);
 
-    if(it!=_semantic_map.end())
+    ObjectSet::iterator it = _processed.find(o);
+    if(it!=_processed.end())
       continue;
 
-    _semantic_map.insert(o);
+    it = _objects.find(o);
+    if(it!=_objects.end())
+      continue;
+
+    _objects.insert(o);
   }
 }
 
-Object SemanticExplorer::findNearestObject() const{
-  Object nearest_object;
+bool SemanticExplorer::findNearestObject(){
+  if(_nearest_object)
+    throw std::runtime_error("[SemanticExplorer][findNearestObject]: you're messing up things!");
+
   float min_dist = std::numeric_limits<float>::max();
 
-  for(ObjectSet::iterator it=_semantic_map.begin(); it!=_semantic_map.end(); ++it){
+  for(ObjectSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
     const Object& o = *it;
     float dist=(o.position()-_robot_pose.translation()).norm();
     if(dist<min_dist){
       min_dist=dist;
-      nearest_object=o;
+      _nearest_object=&o;
     }
   }
-  return nearest_object;
+
+  return _nearest_object;
 }
 
-void SemanticExplorer::computePoses(int i){
-  //  const ObjectPtr &obj = _semantic_map[i];
+Vector3fVector SemanticExplorer::computePoses(){
+  if(!_nearest_object)
+    throw std::runtime_error("[SemanticExplorer][computePoses]: no nearest object!");
 
-  //  _poses[0] = Eigen::Vector3f(obj->position().x()+1.0,obj->position().y(),M_PI);
-  //  _poses[1] = Eigen::Vector3f(obj->position().x(),obj->position().y()+1.0,-M_PI_2);
-  //  _poses[2] = Eigen::Vector3f(obj->position().x()-1.0,obj->position().y(),0);
-  //  _poses[3] = Eigen::Vector3f(obj->position().x(),obj->position().y()-1.0,M_PI_2);
+  Vector3fVector poses(4);
+  poses[0] = Eigen::Vector3f(_nearest_object->position().x()+1.0,_nearest_object->position().y(),M_PI);
+  poses[1] = Eigen::Vector3f(_nearest_object->position().x(),_nearest_object->position().y()+1.0,-M_PI_2);
+  poses[2] = Eigen::Vector3f(_nearest_object->position().x()-1.0,_nearest_object->position().y(),0);
+  poses[3] = Eigen::Vector3f(_nearest_object->position().x(),_nearest_object->position().y()-1.0,M_PI_2);
 
+}
+
+void SemanticExplorer::setProcessed(){
+  if(!_nearest_object)
+    throw std::runtime_error("[SemanticExplorer][setProcessed]: no nearest object!");
+
+  ObjectSet::iterator it = _objects.find(*_nearest_object);
+  if(it!=_objects.end()){
+    Object o = *it;
+    _processed.insert(o);
+    _objects.erase(it);
+  } else
+    throw std::runtime_error("[SemanticExplorer][setProcessed]: you're messing up things!");
+
+  _nearest_object = 0;
 }

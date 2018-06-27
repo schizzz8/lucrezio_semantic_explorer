@@ -6,11 +6,16 @@
 #include <semantic_explorer/semantic_explorer.h>
 #include <actionlib/client/simple_action_client.h>
 #include <move_base_msgs/MoveBaseAction.h>
+#include <visualization_msgs/Marker.h>
+
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 bool listenRobotPose(Eigen::Isometry3f &robot_pose);
 bool receiveSemanticMap(size_t &num_models,SemanticMap &semantic_map);
+
+move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f &next_pose);
+visualization_msgs::Marker makeRVizMarker(const Eigen::Vector3f &next_pose);
 
 int main(int argc, char **argv){
 
@@ -19,15 +24,19 @@ int main(int argc, char **argv){
 
   MoveBaseClient ac("move_base",true);
 
+  ros::Publisher marker_pub;
+  marker_pub = nh.advertise<visualization_msgs::Marker>("goal_visualization_marker",1);
+
   Eigen::Isometry3f robot_pose = Eigen::Isometry3f::Identity();
   size_t num_models;
   SemanticMap semantic_map;
 
   SemanticExplorer explorer;
+  explorer.setup();
 
-  bool success = false;
+  bool exit = false;
 
-  while(ros::ok() && !success){
+  while(ros::ok() && !exit){
     if(!listenRobotPose(robot_pose))
       continue;
     else{
@@ -45,16 +54,38 @@ int main(int argc, char **argv){
 
     ROS_INFO("Calling semantic explorer!");
     explorer.setRobotPose(robot_pose);
-    explorer.setSemanticMap(semantic_map);
-    explorer.init();
+    explorer.setObjects(semantic_map);
 
-//    int nearest_idx = explorer.findNearestObject();
+    if(explorer.findNearestObject()){
 
-//    if(nearest_idx<0){
-//      success=true;
-//      continue;
-//    }
+      ROS_INFO("Waiting for move_base action server to start.");
+      ac.waitForServer();
 
+      Vector3fVector poses = explorer.computePoses();
+
+      for(int i=0; i<4; ++i){
+
+        ROS_INFO("Action server started, sending goal.");
+        move_base_msgs::MoveBaseGoal goal = makeMoveBaseGoal(poses[i]);
+        ac.sendGoal(goal);
+
+        //visualize next pose (RViz)
+        visualization_msgs::Marker marker = makeRVizMarker(poses[i]);
+        marker_pub.publish(marker);
+
+        //wait for the action server to return
+        bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+        if (finished_before_timeout){
+          actionlib::SimpleClientGoalState state = ac.getState();
+          ROS_INFO("Action finished: %s",state.toString().c_str());
+          if(state.toString().compare("SUCCEEDED") == 0)
+            ros::Duration(4).sleep();
+        }
+      }
+
+      explorer.setProcessed();
+    } else
+      exit=true;
   }
 
   return 0;
@@ -114,4 +145,45 @@ bool receiveSemanticMap(size_t & num_models, SemanticMap &semantic_map){
     semantic_map.addObject(obj_ptr);
   }
   return true;
+}
+
+move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f & next_pose){
+
+  move_base_msgs::MoveBaseGoal goal_msg;
+  goal_msg.target_pose.header.frame_id = "/map";
+  goal_msg.target_pose.header.stamp = ros::Time::now();
+
+  goal_msg.target_pose.pose.position.x = next_pose.x();
+  goal_msg.target_pose.pose.position.y = next_pose.y();
+  goal_msg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.y());
+
+  return goal_msg;
+}
+
+visualization_msgs::Marker makeRVizMarker(const Eigen::Vector3f & next_pose){
+  visualization_msgs::Marker marker;
+
+  marker.header.frame_id = "/map";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "basic_shapes";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::ARROW;
+  marker.action = visualization_msgs::Marker::ADD;
+
+  marker.pose.position.x = next_pose.x();
+  marker.pose.position.y = next_pose.y();
+  marker.pose.position.z = 0;
+  marker.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.z());
+
+  marker.scale.x = 0.5;
+  marker.scale.y = 0.5;
+  marker.scale.z = 0.5;
+
+  marker.color.r = 0.0f;
+  marker.color.g = 1.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 1.0;
+
+  marker.lifetime = ros::Duration();
+  return marker;
 }

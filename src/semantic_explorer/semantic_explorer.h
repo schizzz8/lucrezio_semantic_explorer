@@ -2,27 +2,28 @@
 
 #include <semantic_mapper/semantic_map.h>
 
-class SemanticExplorer{
+typedef std::vector<Eigen::Vector3f> Vector3fVector;
 
-  typedef std::vector<Eigen::Vector3f> Vector3fVector;
-  typedef std::vector<bool> BoolVector;
+class SemanticExplorer{
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
+  void setup();
+
   inline void setRobotPose(const Eigen::Isometry3f &robot_pose_){_robot_pose=robot_pose_;}
 
-  void setSemanticMap(const SemanticMap &semantic_map_);
+  void setObjects(const SemanticMap &semantic_map_);
 
-  void init();
+  bool findNearestObject();
 
-  Object findNearestObject() const;
+  Vector3fVector computePoses();
 
-  void computePoses(int i);
-  inline const Vector3fVector& poses() const {return _poses;}
+  void setProcessed();
 
 protected:
   Eigen::Isometry3f _robot_pose;
-  ObjectSet _semantic_map;
-  Vector3fVector _poses;
+  ObjectSet _objects;
+  ObjectSet _processed;
+  const Object* _nearest_object;
 };
