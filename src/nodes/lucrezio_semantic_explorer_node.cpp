@@ -65,8 +65,10 @@ int main(int argc, char **argv){
 
       for(int i=0; i<4; ++i){
 
-        ROS_INFO("Action server started, sending goal.");
+        std::cerr << "Next pose: " << poses[i].transpose() << std::endl;
+
         move_base_msgs::MoveBaseGoal goal = makeMoveBaseGoal(poses[i]);
+        ROS_INFO("Action server started, sending goal.");
         ac.sendGoal(goal);
 
         //visualize next pose (RViz)
@@ -155,7 +157,7 @@ move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f & next_pose)
 
   goal_msg.target_pose.pose.position.x = next_pose.x();
   goal_msg.target_pose.pose.position.y = next_pose.y();
-  goal_msg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.y());
+  goal_msg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.z());
 
   return goal_msg;
 }
@@ -175,9 +177,9 @@ visualization_msgs::Marker makeRVizMarker(const Eigen::Vector3f & next_pose){
   marker.pose.position.z = 0;
   marker.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.z());
 
-  marker.scale.x = 0.5;
-  marker.scale.y = 0.5;
-  marker.scale.z = 0.5;
+  marker.scale.x = 0.25;
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
 
   marker.color.r = 0.0f;
   marker.color.g = 1.0f;

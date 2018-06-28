@@ -11,6 +11,9 @@ void SemanticExplorer::setObjects(const SemanticMap &semantic_map_){
   for(size_t i=0; i<semantic_map_.size(); ++i){
     const Object &o = *(semantic_map_[i]);
 
+    if(o.model() != "table_ikea_bjursta" && o.model() != "couch")
+      continue;
+
     ObjectSet::iterator it = _processed.find(o);
     if(it!=_processed.end())
       continue;
@@ -51,6 +54,7 @@ Vector3fVector SemanticExplorer::computePoses(){
   poses[2] = Eigen::Vector3f(_nearest_object->position().x()-1.0,_nearest_object->position().y(),0);
   poses[3] = Eigen::Vector3f(_nearest_object->position().x(),_nearest_object->position().y()-1.0,M_PI_2);
 
+  return poses;
 }
 
 void SemanticExplorer::setProcessed(){
