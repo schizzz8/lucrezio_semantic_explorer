@@ -56,12 +56,12 @@ Vector3fVector SemanticExplorer::computePoses(){
   return poses;
 }
 
-Eigen::Vector3f SemanticExplorer::computeNBV(){
+Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
   if(!_nearest_object)
     throw std::runtime_error("[SemanticExplorer][computeNBV]: no nearest object!");
 
   Eigen::Vector3f nbv = Eigen::Vector3f::Zero();
-  int unn_max=-1;
+  unn_max=-1;
 
   Vector3fPairVector rays;
 

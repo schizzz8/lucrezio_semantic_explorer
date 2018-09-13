@@ -22,7 +22,7 @@ public:
   bool findNearestObject();
 
   Vector3fVector computePoses();
-  Eigen::Vector3f computeNBV();
+  Eigen::Vector3f computeNBV(int& unn_max);
 
   void setProcessed();
 
