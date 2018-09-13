@@ -1,6 +1,6 @@
 #pragma once
 
-#include <semantic_mapper/semantic_map.h>
+#include <semantic_mapper/object.h>
 
 typedef std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> > Vector3fVector;
 typedef std::vector<Eigen::Isometry3f, Eigen::aligned_allocator<Eigen::Isometry3f> > Isometry3fVector;
@@ -17,7 +17,7 @@ public:
 
   inline void setCameraPose(const Eigen::Isometry3f &camera_pose_){_camera_pose=camera_pose_;}
 
-  void setObjects(const SemanticMap* semantic_map_);
+  void setObjects(const ObjectPtrVector* semantic_map_);
 
   bool findNearestObject();
 

@@ -7,7 +7,7 @@ SemanticExplorer::SemanticExplorer(){
   _nearest_object = 0;
 }
 
-void SemanticExplorer::setObjects(const SemanticMap* semantic_map_){
+void SemanticExplorer::setObjects(const ObjectPtrVector * semantic_map_){
   for(size_t i=0; i<semantic_map_->size(); ++i){
     const Object &o = *(semantic_map_->at(i));
 

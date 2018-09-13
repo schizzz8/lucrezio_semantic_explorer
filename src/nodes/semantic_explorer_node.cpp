@@ -12,7 +12,7 @@
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 bool listenRobotPose(Eigen::Isometry3f &robot_pose);
-bool receiveSemanticMap(size_t &num_models,SemanticMap &semantic_map);
+bool receiveSemanticMap(size_t &num_models,const SemanticMap* semantic_map);
 
 move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f &next_pose);
 visualization_msgs::Marker makeRVizMarker(const Eigen::Vector3f &next_pose);
@@ -29,10 +29,9 @@ int main(int argc, char **argv){
 
   Eigen::Isometry3f robot_pose = Eigen::Isometry3f::Identity();
   size_t num_models;
-  SemanticMap semantic_map;
+  const SemanticMap* semantic_map(new SemanticMap);
 
   SemanticExplorer explorer;
-  explorer.setup();
 
   bool exit = false;
 
@@ -90,6 +89,8 @@ int main(int argc, char **argv){
       exit=true;
   }
 
+  delete semantic_map;
+
   return 0;
 }
 
@@ -126,7 +127,7 @@ bool listenRobotPose(Eigen::Isometry3f &robot_pose){
   return true;
 }
 
-bool receiveSemanticMap(size_t & num_models, SemanticMap &semantic_map){
+bool receiveSemanticMap(size_t & num_models, const SemanticMap * semantic_map){
   boost::shared_ptr<lucrezio_semantic_mapper::SemanticMap const> semantic_map_msg_ptr;
   semantic_map_msg_ptr = ros::topic::waitForMessage<lucrezio_semantic_mapper::SemanticMap> ("/semantic_map", ros::Duration (10));
   if(!semantic_map_msg_ptr){
@@ -144,7 +145,7 @@ bool receiveSemanticMap(size_t & num_models, SemanticMap &semantic_map){
     const lucrezio_semantic_mapper::Object &o = semantic_map_msg_ptr->objects[i];
     ObjectPtr obj_ptr(new Object(o.type,
                                  Eigen::Vector3f(o.position.x,o.position.y,o.position.z)));
-    semantic_map.addObject(obj_ptr);
+    semantic_map->addObject(obj_ptr);
   }
   return true;
 }
