@@ -9,9 +9,9 @@ SemanticExplorer::SemanticExplorer(){
   _nearest_object = 0;
 }
 
-void SemanticExplorer::setObjects(const ObjectPtrVector * semantic_map_){
-  for(size_t i=0; i<semantic_map_->size(); ++i){
-    const Object &o = *(semantic_map_->at(i));
+void SemanticExplorer::setObjects(const ObjectPtrVector& semantic_map){
+  for(size_t i=0; i<semantic_map.size(); ++i){
+    Object o = *(semantic_map[i].get());
 
     //    if(o.model() != "table_ikea_bjursta" && o.model() != "couch")
     //      continue;
@@ -30,10 +30,9 @@ void SemanticExplorer::setObjects(const ObjectPtrVector * semantic_map_){
 
 bool SemanticExplorer::findNearestObject(){
   if(_nearest_object)
-    throw std::runtime_error("[SemanticExplorer][findNearestObject]: you're messing up things!");
+   _nearest_object.reset(new Object);
 
   float min_dist = std::numeric_limits<float>::max();
-
   bool found=false;
   for(ObjectSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
     const Object& o = *it;

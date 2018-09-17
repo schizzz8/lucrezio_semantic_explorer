@@ -11,7 +11,7 @@
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 bool listenRobotPose(Eigen::Isometry3f &robot_pose);
-bool receiveSemanticMap(size_t &num_models,ObjectPtrVector* semantic_map);
+bool receiveSemanticMap(int &num_models,ObjectPtrVector& semantic_map);
 
 move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f &next_pose);
 visualization_msgs::Marker makeRVizMarker(const Eigen::Vector3f &next_pose);
@@ -29,82 +29,83 @@ int main(int argc, char **argv){
   Eigen::Isometry3f robot_pose = Eigen::Isometry3f::Identity();
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
   camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.5);
-  size_t num_models;
-  ObjectPtrVector* semantic_map(new ObjectPtrVector);
+  int num_models=0;
+  ObjectPtrVector semantic_map;
 
   SemanticExplorer explorer;
 
   bool exit = false;
 
-  while(ros::ok() && !exit){
-    if(!listenRobotPose(robot_pose))
-      continue;
-    else{
-      ROS_INFO("Received robot pose!");
-      std::cerr << "Position: " << robot_pose.translation().head(2).transpose() << std::endl;
-      std::cerr << "Orientation: " << robot_pose.linear().eulerAngles(0,1,2).z() << std::endl;
-    }
-
-    if(!receiveSemanticMap(num_models,semantic_map))
-      continue;
-    else{
-      ROS_INFO("Received semantic map!");
-      std::cerr << "Num models: " << num_models << std::endl;
-    }
+  while(ros::ok() && !exit) {
 
     ROS_INFO("Calling semantic explorer!");
-    explorer.setCameraPose(robot_pose*camera_offset);
-    explorer.setObjects(semantic_map);
+    bool condition=true;
+    while(condition){
 
-    if(explorer.findNearestObject()){
+      //listen robot pose
+      if(!listenRobotPose(robot_pose))
+        continue;
+      else{
+        ROS_INFO("Received robot pose!");
+        std::cerr << "Position: " << robot_pose.translation().head(2).transpose() << std::endl;
+        std::cerr << "Orientation: " << robot_pose.linear().eulerAngles(0,1,2).z() << std::endl;
+        explorer.setCameraPose(robot_pose*camera_offset);
+      }
 
+      //receive semantic map
+      if(!receiveSemanticMap(num_models,semantic_map))
+        continue;
+      else{
+        ROS_INFO("Received semantic map!");
+        std::cerr << "Num models: " << num_models << std::endl;
+        explorer.setObjects(semantic_map);
+      }
+
+      //find nearest object
+      if(!explorer.findNearestObject()){
+        ROS_INFO("No objects to process!");
+        exit=true; //no more objects to process
+        condition = false;
+        continue;
+      }
       std::string nearest_model(explorer.nearestObject()->model());
-
       std::cerr << "Processing: " << nearest_model << std::endl;
 
+      //compute NBV
       Eigen::Vector3f last_nbv = Eigen::Vector3f::Zero();
-      bool condition=true;
-      while(condition){
+      int unn_max=-1;
+      Eigen::Vector3f nbv = explorer.computeNBV(unn_max);
+      std::cerr << "NBV: " << nbv.transpose() << std::endl;
+      std::cerr << "Unn max: " << unn_max << std::endl;
 
-        int unn_max=-1;
-        Eigen::Vector3f nbv = explorer.computeNBV(unn_max);
-        std::cerr << "NBV: " << nbv.transpose() << std::endl;
-        std::cerr << "Unn max: " << unn_max << std::endl;
-
-        if(unn_max>=0 && unn_max<10 || (nbv-last_nbv).norm() < 1e-2){
-          std::cerr << "processed!" << std::endl;
-          condition=false;
-          continue;
-        }
-
-        //visualize next pose (RViz)
-        visualization_msgs::Marker marker = makeRVizMarker(nbv);
-        marker_pub.publish(marker);
-
-        ROS_INFO("Waiting for move_base action server to start.");
-        ac.waitForServer();
-
-        move_base_msgs::MoveBaseGoal goal = makeMoveBaseGoal(nbv);
-        ROS_INFO("Action server started, sending goal.");
-        ac.sendGoal(goal);
-
-        //wait for the action server to return
-        bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
-        if (finished_before_timeout){
-          actionlib::SimpleClientGoalState state = ac.getState();
-          ROS_INFO("Action finished: %s",state.toString().c_str());
-        }
-        last_nbv = nbv;
+      //evaluate stop criterion
+      if(unn_max>=0 && unn_max<10 || (nbv-last_nbv).norm() < 1e-2){
+        ROS_INFO("%s: processed!",nearest_model.c_str());
+        explorer.setProcessed();
+        condition=false;
+        continue;
       }
-      explorer.setProcessed();
-      ROS_INFO("%s: processed!",nearest_model.c_str());
-    } else {
-      ROS_INFO("No more objects to process!");
-      exit=true; //no more objects to process
+      last_nbv = nbv;
+
+      //visualize next pose (RViz)
+      visualization_msgs::Marker marker = makeRVizMarker(nbv);
+      marker_pub.publish(marker);
+
+      //send move_base goal
+      ROS_INFO("Waiting for move_base action server to start.");
+      ac.waitForServer();
+      move_base_msgs::MoveBaseGoal goal = makeMoveBaseGoal(nbv);
+      ROS_INFO("Action server started, sending goal.");
+      ac.sendGoal(goal);
+
+      //wait for the action server to return
+      bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+      if (finished_before_timeout){
+        actionlib::SimpleClientGoalState state = ac.getState();
+        ROS_INFO("Action finished: %s",state.toString().c_str());
+      }
     }
   }
-
-  delete semantic_map;
 
   return 0;
 }
@@ -142,23 +143,29 @@ bool listenRobotPose(Eigen::Isometry3f &robot_pose){
   return true;
 }
 
-bool receiveSemanticMap(size_t & num_models, ObjectPtrVector * semantic_map){
+bool receiveSemanticMap(int & num_models, ObjectPtrVector& semantic_map){
   boost::shared_ptr<lucrezio_semantic_mapper::SemanticMap const> semantic_map_msg_ptr;
   semantic_map_msg_ptr = ros::topic::waitForMessage<lucrezio_semantic_mapper::SemanticMap> ("/semantic_map", ros::Duration (10));
   if(!semantic_map_msg_ptr){
     ROS_ERROR("No semantic_map message received!");
     return false;
+  } else {
+    ROS_INFO("Received semantic_map message!");
   }
 
   num_models = semantic_map_msg_ptr->objects.size();
   if(!num_models){
     ROS_ERROR("Received empty semantic map!");
     return false;
+  } else {
+    ROS_INFO("Num models: %d",num_models);
   }
 
-  semantic_map->resize(num_models);
-  for(size_t i=0; i<num_models; ++i){
+  semantic_map.resize(num_models);
+  std::cerr << "semantic map resized" << std::endl;
+  for(int i=0; i<num_models; ++i){
     const lucrezio_semantic_mapper::Object &o = semantic_map_msg_ptr->objects[i];
+    std::cerr << o.type << ".";
     ObjectPtr obj_ptr(new Object(o.type,
                                  Eigen::Vector3f(o.position.x,o.position.y,o.position.z),
                                  Eigen::Vector3f(o.min.x,o.min.y,o.min.z),
@@ -168,7 +175,9 @@ bool receiveSemanticMap(size_t & num_models, ObjectPtrVector * semantic_map){
                                  o.octree_filename,
                                  o.fre_voxel_cloud_filename,
                                  o.occ_voxel_cloud_filename));
-    semantic_map->at(i) = obj_ptr;
+    std::cerr << ".";
+    semantic_map[i] = obj_ptr;
+    std::cerr << ".\n";
   }
   return true;
 }

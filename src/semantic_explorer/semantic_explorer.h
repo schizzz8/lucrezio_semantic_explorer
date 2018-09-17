@@ -17,7 +17,7 @@ public:
 
   inline void setCameraPose(const Eigen::Isometry3f &camera_pose_){_camera_pose=camera_pose_;}
 
-  void setObjects(const ObjectPtrVector* semantic_map_);
+  void setObjects(const ObjectPtrVector& semantic_map);
 
   bool findNearestObject();
 
