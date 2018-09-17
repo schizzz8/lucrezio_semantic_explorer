@@ -26,7 +26,7 @@ public:
 
   void setProcessed();
 
-  inline const Object* nearestObject() const {return _nearest_object;}
+  inline const ObjectPtr& nearestObject() const {return _nearest_object;}
 
   inline const Vector3fPairVector& rays() const {return _rays;}
 
@@ -34,7 +34,7 @@ protected:
   Eigen::Isometry3f _camera_pose;
   ObjectSet _objects;
   ObjectSet _processed;
-  const Object* _nearest_object;
+  ObjectPtr _nearest_object;
   Vector3fPairVector _rays;
 
 private:

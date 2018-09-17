@@ -27,6 +27,8 @@ int main(int argc, char **argv){
   marker_pub = nh.advertise<visualization_msgs::Marker>("goal_visualization_marker",1);
 
   Eigen::Isometry3f robot_pose = Eigen::Isometry3f::Identity();
+  Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
+  camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.5);
   size_t num_models;
   ObjectPtrVector* semantic_map(new ObjectPtrVector);
 
@@ -51,18 +53,29 @@ int main(int argc, char **argv){
     }
 
     ROS_INFO("Calling semantic explorer!");
-    explorer.setCameraPose(robot_pose);
+    explorer.setCameraPose(robot_pose*camera_offset);
     explorer.setObjects(semantic_map);
 
     if(explorer.findNearestObject()){
 
+      std::string nearest_model(explorer.nearestObject()->model());
+
+      std::cerr << "Processing: " << nearest_model << std::endl;
+
+      Eigen::Vector3f last_nbv = Eigen::Vector3f::Zero();
       bool condition=true;
       while(condition){
 
         int unn_max=-1;
-        std::cerr << "Nearest: " << explorer.nearestObject()->model() << std::endl;
         Eigen::Vector3f nbv = explorer.computeNBV(unn_max);
         std::cerr << "NBV: " << nbv.transpose() << std::endl;
+        std::cerr << "Unn max: " << unn_max << std::endl;
+
+        if(unn_max>=0 && unn_max<10 || (nbv-last_nbv).norm() < 1e-2){
+          std::cerr << "processed!" << std::endl;
+          condition=false;
+          continue;
+        }
 
         //visualize next pose (RViz)
         visualization_msgs::Marker marker = makeRVizMarker(nbv);
@@ -80,17 +93,15 @@ int main(int argc, char **argv){
         if (finished_before_timeout){
           actionlib::SimpleClientGoalState state = ac.getState();
           ROS_INFO("Action finished: %s",state.toString().c_str());
-          if(state.toString().compare("SUCCEEDED") == 0)
-            ros::Duration(4).sleep();
         }
-
-        if(unn_max>0 && unn_max<10)
-          condition=false;
+        last_nbv = nbv;
       }
-
       explorer.setProcessed();
-    } else
+      ROS_INFO("%s: processed!",nearest_model.c_str());
+    } else {
+      ROS_INFO("No more objects to process!");
       exit=true; //no more objects to process
+    }
   }
 
   delete semantic_map;
@@ -149,7 +160,14 @@ bool receiveSemanticMap(size_t & num_models, ObjectPtrVector * semantic_map){
   for(size_t i=0; i<num_models; ++i){
     const lucrezio_semantic_mapper::Object &o = semantic_map_msg_ptr->objects[i];
     ObjectPtr obj_ptr(new Object(o.type,
-                                 Eigen::Vector3f(o.position.x,o.position.y,o.position.z)));
+                                 Eigen::Vector3f(o.position.x,o.position.y,o.position.z),
+                                 Eigen::Vector3f(o.min.x,o.min.y,o.min.z),
+                                 Eigen::Vector3f(o.max.x,o.max.y,o.max.z),
+                                 Eigen::Vector3f(o.color.x,o.color.y,o.color.z),
+                                 o.cloud_filename,
+                                 o.octree_filename,
+                                 o.fre_voxel_cloud_filename,
+                                 o.occ_voxel_cloud_filename));
     semantic_map->at(i) = obj_ptr;
   }
   return true;

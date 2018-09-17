@@ -1,5 +1,7 @@
 #include "semantic_explorer.h"
 
+void serializeRays(const Vector3fPairVector& rays, const std::string& filename);
+
 SemanticExplorer::SemanticExplorer(){
   _camera_pose.setIdentity();
   _objects.clear();
@@ -32,15 +34,17 @@ bool SemanticExplorer::findNearestObject(){
 
   float min_dist = std::numeric_limits<float>::max();
 
+  bool found=false;
   for(ObjectSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
     const Object& o = *it;
     float dist=(o.position()-_camera_pose.translation()).norm();
     if(dist<min_dist){
       min_dist=dist;
-      _nearest_object=&o;
+      _nearest_object=ObjectPtr(new Object(o));
+      found=true;
     }
   }
-  return _nearest_object;
+  return found;
 }
 
 Vector3fVector SemanticExplorer::computePoses(){
@@ -62,7 +66,6 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
 
   Eigen::Vector3f nbv = Eigen::Vector3f::Zero();
   unn_max=-1;
-
   Vector3fPairVector rays;
 
   //K
@@ -96,7 +99,7 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
 
       //set ray origin to camera pose
       octomap::point3d origin(v.x(),v.y(),0.6);
-      std::cerr << v.transpose() << " - ";
+      std::cerr << "Evaluating view: " << v.transpose() << " => ";
 
       //generate rays
       Eigen::Vector3f end = Eigen::Vector3f::Zero();
@@ -137,7 +140,7 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
             }
           }
         }
-      std::cerr << std::endl << "occ: " << occ << " - unn: " << unn << " - fre: " << fre << std::endl;
+      std::cerr << "occ: " << occ << " - unn: " << unn << " - fre: " << fre << std::endl;
 
       if(unn>unn_max){
         unn_max = unn;
@@ -146,6 +149,12 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
       }
       rays.clear();
     }
+
+  std::cerr << "Nearest object occ voxels: " << _nearest_object->occVoxelCloud()->size() << std::endl;
+  std::cerr << "Nearest object fre voxels: " << _nearest_object->freVoxelCloud()->size() << std::endl;
+  pcl::io::savePCDFileASCII("occ_cloud.pcd", *_nearest_object->occVoxelCloud());
+  pcl::io::savePCDFileASCII("fre_cloud.pcd", *_nearest_object->freVoxelCloud());
+  serializeRays(_rays,"rays.txt");
   return nbv;
 }
 
@@ -162,4 +171,18 @@ void SemanticExplorer::setProcessed(){
     throw std::runtime_error("[SemanticExplorer][setProcessed]: you're messing up things!");
 
   _nearest_object = 0;
+}
+
+void serializeRays(const Vector3fPairVector& rays, const std::string& filename){
+  std::ofstream data;
+  data.open(filename);
+
+  for(int i=0; i<rays.size(); ++i){
+    const std::pair<Eigen::Vector3f,Eigen::Vector3f>& ray = rays[i];
+    const Eigen::Vector3f& first = ray.first;
+    const Eigen::Vector3f& second = ray.second;
+    data << first.x() << " " << first.y() << " " << first.z() << " ";
+    data << second.x() << " " << second.y() << " " << second.z() << std::endl;
+  }
+  data.close();
 }
