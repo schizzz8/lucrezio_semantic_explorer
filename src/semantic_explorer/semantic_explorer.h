@@ -32,8 +32,8 @@ public:
 
 protected:
   Eigen::Isometry3f _camera_pose;
-  ObjectSet _objects;
-  ObjectSet _processed;
+  ObjectPtrSet _objects;
+  ObjectPtrSet _processed;
   ObjectPtr _nearest_object;
   Vector3fPairVector _rays;
 

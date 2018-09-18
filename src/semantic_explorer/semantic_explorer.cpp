@@ -11,17 +11,13 @@ SemanticExplorer::SemanticExplorer(){
 
 void SemanticExplorer::setObjects(const ObjectPtrVector& semantic_map){
   for(size_t i=0; i<semantic_map.size(); ++i){
-    Object o = *(semantic_map[i].get());
+    const ObjectPtr& o = semantic_map[i];
 
     //    if(o.model() != "table_ikea_bjursta" && o.model() != "couch")
     //      continue;
 
-    ObjectSet::iterator it = _processed.find(o);
+    ObjectPtrSet::iterator it = _processed.find(o);
     if(it!=_processed.end())
-      continue;
-
-    it = _objects.find(o);
-    if(it!=_objects.end())
       continue;
 
     _objects.insert(o);
@@ -29,17 +25,14 @@ void SemanticExplorer::setObjects(const ObjectPtrVector& semantic_map){
 }
 
 bool SemanticExplorer::findNearestObject(){
-  if(_nearest_object)
-   _nearest_object.reset(new Object);
-
   float min_dist = std::numeric_limits<float>::max();
   bool found=false;
-  for(ObjectSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
-    const Object& o = *it;
-    float dist=(o.position()-_camera_pose.translation()).norm();
+  for(ObjectPtrSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
+    const ObjectPtr& o = *it;
+    float dist=(o->position()-_camera_pose.translation()).norm();
     if(dist<min_dist){
       min_dist=dist;
-      _nearest_object=ObjectPtr(new Object(o));
+      _nearest_object=o;
       found=true;
     }
   }
@@ -149,11 +142,11 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
       rays.clear();
     }
 
-  std::cerr << "Nearest object occ voxels: " << _nearest_object->occVoxelCloud()->size() << std::endl;
-  std::cerr << "Nearest object fre voxels: " << _nearest_object->freVoxelCloud()->size() << std::endl;
-  pcl::io::savePCDFileASCII("occ_cloud.pcd", *_nearest_object->occVoxelCloud());
-  pcl::io::savePCDFileASCII("fre_cloud.pcd", *_nearest_object->freVoxelCloud());
-  serializeRays(_rays,"rays.txt");
+//  std::cerr << "Nearest object occ voxels: " << _nearest_object->occVoxelCloud()->size() << std::endl;
+//  std::cerr << "Nearest object fre voxels: " << _nearest_object->freVoxelCloud()->size() << std::endl;
+//  pcl::io::savePCDFileASCII("occ_cloud.pcd", *_nearest_object->occVoxelCloud());
+//  pcl::io::savePCDFileASCII("fre_cloud.pcd", *_nearest_object->freVoxelCloud());
+//  serializeRays(_rays,"rays.txt");
   return nbv;
 }
 
@@ -161,9 +154,9 @@ void SemanticExplorer::setProcessed(){
   if(!_nearest_object)
     throw std::runtime_error("[SemanticExplorer][setProcessed]: no nearest object!");
 
-  ObjectSet::iterator it = _objects.find(*_nearest_object);
+  ObjectPtrSet::iterator it = _objects.find(_nearest_object);
   if(it!=_objects.end()){
-    Object o = *it;
+    const ObjectPtr& o = *it;
     _processed.insert(o);
     _objects.erase(it);
   } else

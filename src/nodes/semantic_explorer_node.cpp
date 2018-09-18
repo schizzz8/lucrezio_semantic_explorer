@@ -107,6 +107,11 @@ int main(int argc, char **argv){
     }
   }
 
+  //free memory
+  for (ObjectPtrVector::iterator it = semantic_map.begin(); it != semantic_map.end(); ++it)
+    delete (*it);
+  semantic_map.clear();
+
   return 0;
 }
 
@@ -143,30 +148,24 @@ bool listenRobotPose(Eigen::Isometry3f &robot_pose){
   return true;
 }
 
-bool receiveSemanticMap(int & num_models, ObjectPtrVector& semantic_map){
+bool receiveSemanticMap(int& num_models, ObjectPtrVector& semantic_map){
   boost::shared_ptr<lucrezio_semantic_mapper::SemanticMap const> semantic_map_msg_ptr;
   semantic_map_msg_ptr = ros::topic::waitForMessage<lucrezio_semantic_mapper::SemanticMap> ("/semantic_map", ros::Duration (10));
   if(!semantic_map_msg_ptr){
     ROS_ERROR("No semantic_map message received!");
     return false;
-  } else {
-    ROS_INFO("Received semantic_map message!");
   }
 
   num_models = semantic_map_msg_ptr->objects.size();
   if(!num_models){
     ROS_ERROR("Received empty semantic map!");
     return false;
-  } else {
-    ROS_INFO("Num models: %d",num_models);
   }
 
   semantic_map.resize(num_models);
-  std::cerr << "semantic map resized" << std::endl;
   for(int i=0; i<num_models; ++i){
     const lucrezio_semantic_mapper::Object &o = semantic_map_msg_ptr->objects[i];
-    std::cerr << o.type << ".";
-    ObjectPtr obj_ptr(new Object(o.type,
+    semantic_map[i] = new Object(o.type,
                                  Eigen::Vector3f(o.position.x,o.position.y,o.position.z),
                                  Eigen::Vector3f(o.min.x,o.min.y,o.min.z),
                                  Eigen::Vector3f(o.max.x,o.max.y,o.max.z),
@@ -174,10 +173,7 @@ bool receiveSemanticMap(int & num_models, ObjectPtrVector& semantic_map){
                                  o.cloud_filename,
                                  o.octree_filename,
                                  o.fre_voxel_cloud_filename,
-                                 o.occ_voxel_cloud_filename));
-    std::cerr << ".";
-    semantic_map[i] = obj_ptr;
-    std::cerr << ".\n";
+                                 o.occ_voxel_cloud_filename);
   }
   return true;
 }
