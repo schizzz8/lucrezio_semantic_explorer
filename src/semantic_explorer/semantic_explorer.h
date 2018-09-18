@@ -1,5 +1,5 @@
 #pragma once
-
+#include <queue>
 #include <semantic_mapper/object.h>
 
 typedef std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> > Vector3fVector;
@@ -7,11 +7,20 @@ typedef std::vector<Eigen::Isometry3f, Eigen::aligned_allocator<Eigen::Isometry3
 typedef std::vector<std::pair<Eigen::Vector3f,Eigen::Vector3f>,
 Eigen::aligned_allocator<std::pair<Eigen::Vector3f,Eigen::Vector3f> > > Vector3fPairVector;
 
+struct ScoredPose {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    bool operator<(const ScoredPose& sc) const {
+      return score < sc.score;
+    }
+    float score;
+    Eigen::Vector3f pose;
+};
+typedef std::priority_queue<ScoredPose> ScoredPoseQueue;
 
 class SemanticExplorer{
 
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   SemanticExplorer();
 
@@ -22,7 +31,7 @@ public:
   bool findNearestObject();
 
   Vector3fVector computePoses();
-  Eigen::Vector3f computeNBV(int& unn_max);
+  void computeNBV();
 
   void setProcessed();
 
@@ -30,12 +39,15 @@ public:
 
   inline const Vector3fPairVector& rays() const {return _rays;}
 
+  inline const ScoredPoseQueue& views() const {return _views;}
+
 protected:
   Eigen::Isometry3f _camera_pose;
   ObjectPtrSet _objects;
   ObjectPtrSet _processed;
   ObjectPtr _nearest_object;
   Vector3fPairVector _rays;
+  ScoredPoseQueue _views;
 
 private:
   Eigen::Isometry3f transform3d(const Eigen::Vector3f& v){

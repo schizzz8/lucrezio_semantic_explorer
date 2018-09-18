@@ -16,6 +16,7 @@ void SemanticExplorer::setObjects(const ObjectPtrVector& semantic_map){
     //    if(o.model() != "table_ikea_bjursta" && o.model() != "couch")
     //      continue;
 
+    //check if the object has been already processed
     ObjectPtrSet::iterator it = _processed.find(o);
     if(it!=_processed.end())
       continue;
@@ -29,6 +30,12 @@ bool SemanticExplorer::findNearestObject(){
   bool found=false;
   for(ObjectPtrSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
     const ObjectPtr& o = *it;
+
+    //check if the object has been already processed
+    ObjectPtrSet::iterator itt = _processed.find(o);
+    if(itt!=_processed.end())
+      continue;
+
     float dist=(o->position()-_camera_pose.translation()).norm();
     if(dist<min_dist){
       min_dist=dist;
@@ -52,12 +59,14 @@ Vector3fVector SemanticExplorer::computePoses(){
   return poses;
 }
 
-Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
+void SemanticExplorer::computeNBV(){
   if(!_nearest_object)
     throw std::runtime_error("[SemanticExplorer][computeNBV]: no nearest object!");
 
-  Eigen::Vector3f nbv = Eigen::Vector3f::Zero();
-  unn_max=-1;
+  //clear queue
+  _views = ScoredPoseQueue();
+
+  int unn_max=-1;
   Vector3fPairVector rays;
 
   //K
@@ -136,9 +145,12 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
 
       if(unn>unn_max){
         unn_max = unn;
-        nbv=v;
         _rays = rays;
       }
+      ScoredPose view;
+      view.score = unn;
+      view.pose = v;
+      _views.push(view);
       rays.clear();
     }
 
@@ -147,7 +159,6 @@ Eigen::Vector3f SemanticExplorer::computeNBV(int & unn_max){
 //  pcl::io::savePCDFileASCII("occ_cloud.pcd", *_nearest_object->occVoxelCloud());
 //  pcl::io::savePCDFileASCII("fre_cloud.pcd", *_nearest_object->freVoxelCloud());
 //  serializeRays(_rays,"rays.txt");
-  return nbv;
 }
 
 void SemanticExplorer::setProcessed(){

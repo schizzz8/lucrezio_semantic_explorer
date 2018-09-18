@@ -35,57 +35,47 @@ int main(int argc, char **argv){
   SemanticExplorer explorer;
 
   bool exit = false;
-
   while(ros::ok() && !exit) {
 
-    ROS_INFO("Calling semantic explorer!");
-    bool condition=true;
-    while(condition){
+    //listen robot pose
+    if(!listenRobotPose(robot_pose))
+      continue;
+    else{
+      ROS_INFO("Received robot pose!");
+      std::cerr << "Position: " << robot_pose.translation().head(2).transpose() << std::endl;
+      std::cerr << "Orientation: " << robot_pose.linear().eulerAngles(0,1,2).z() << std::endl;
+      explorer.setCameraPose(robot_pose*camera_offset);
+    }
 
-      //listen robot pose
-      if(!listenRobotPose(robot_pose))
-        continue;
-      else{
-        ROS_INFO("Received robot pose!");
-        std::cerr << "Position: " << robot_pose.translation().head(2).transpose() << std::endl;
-        std::cerr << "Orientation: " << robot_pose.linear().eulerAngles(0,1,2).z() << std::endl;
-        explorer.setCameraPose(robot_pose*camera_offset);
-      }
+    //receive semantic map
+    if(!receiveSemanticMap(num_models,semantic_map))
+      continue;
+    else{
+      ROS_INFO("Received semantic map!");
+      std::cerr << "Num models: " << num_models << std::endl;
+      explorer.setObjects(semantic_map);
+    }
 
-      //receive semantic map
-      if(!receiveSemanticMap(num_models,semantic_map))
-        continue;
-      else{
-        ROS_INFO("Received semantic map!");
-        std::cerr << "Num models: " << num_models << std::endl;
-        explorer.setObjects(semantic_map);
-      }
+    //find nearest object
+    if(!explorer.findNearestObject()){
+      ROS_INFO("No objects to process!");
+      exit=true; //no more objects to process
+      continue;
+    }
+    std::string nearest_model(explorer.nearestObject()->model());
+    std::cerr << "Processing: " << nearest_model << std::endl;
 
-      //find nearest object
-      if(!explorer.findNearestObject()){
-        ROS_INFO("No objects to process!");
-        exit=true; //no more objects to process
-        condition = false;
-        continue;
-      }
-      std::string nearest_model(explorer.nearestObject()->model());
-      std::cerr << "Processing: " << nearest_model << std::endl;
+    //compute NBV
+    explorer.computeNBV();
+    ScoredPoseQueue tmp_q = explorer.views();
+    while (!tmp_q.empty()){
 
-      //compute NBV
-      Eigen::Vector3f last_nbv = Eigen::Vector3f::Zero();
-      int unn_max=-1;
-      Eigen::Vector3f nbv = explorer.computeNBV(unn_max);
+      //current NBV
+      ScoredPose view = tmp_q.top();
+      Eigen::Vector3f nbv = view.pose;
+      int unn_max=view.score;
       std::cerr << "NBV: " << nbv.transpose() << std::endl;
       std::cerr << "Unn max: " << unn_max << std::endl;
-
-      //evaluate stop criterion
-      if(unn_max>=0 && unn_max<10 || (nbv-last_nbv).norm() < 1e-2){
-        ROS_INFO("%s: processed!",nearest_model.c_str());
-        explorer.setProcessed();
-        condition=false;
-        continue;
-      }
-      last_nbv = nbv;
 
       //visualize next pose (RViz)
       visualization_msgs::Marker marker = makeRVizMarker(nbv);
@@ -104,7 +94,10 @@ int main(int argc, char **argv){
         actionlib::SimpleClientGoalState state = ac.getState();
         ROS_INFO("Action finished: %s",state.toString().c_str());
       }
+      tmp_q.pop();
     }
+    ROS_INFO("%s: processed!",nearest_model.c_str());
+    explorer.setProcessed();
   }
 
   //free memory
