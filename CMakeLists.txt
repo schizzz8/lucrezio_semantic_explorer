@@ -29,7 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
   lucrezio_simulation_environments
   lucrezio_semantic_mapper
   move_base
-  #srrg_core
+  srrg_core
   roscpp
   std_msgs
   nav_msgs
@@ -140,7 +140,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 catkin_package(
   INCLUDE_DIRS src
   LIBRARIES semantic_explorer_library
-  CATKIN_DEPENDS lucrezio_simulation_environments lucrezio_semantic_mapper move_base roscpp std_msgs nav_msgs geometry_msgs tf actionlib_msgs actionlib visualization_msgs #srrg_core
+  CATKIN_DEPENDS lucrezio_simulation_environments lucrezio_semantic_mapper move_base roscpp std_msgs nav_msgs geometry_msgs tf actionlib_msgs actionlib visualization_msgs srrg_core
 #  DEPENDS system_lib
 )
 

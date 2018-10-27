@@ -78,8 +78,8 @@ int main(int argc, char **argv){
     detector.compute();
     ScoredCellQueue scored_centroids = detector.frontierScoredCentroids();
 
-    ROS_INFO("Visualizing output!");
-    showOutput(robot_pose.translation(),resolution,origin,occupancy_grid,scored_centroids);
+//    ROS_INFO("Visualizing output!");
+//    showOutput(robot_pose.translation(),resolution,origin,occupancy_grid,scored_centroids);
 
     if(scored_centroids.empty()){
       success = true;
