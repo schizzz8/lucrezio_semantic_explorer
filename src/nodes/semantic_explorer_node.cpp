@@ -211,6 +211,10 @@ move_base_msgs::MoveBaseGoal makeMoveBaseGoal(const Eigen::Vector3f & next_pose)
   goal_msg.target_pose.pose.position.y = next_pose.y();
   goal_msg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(next_pose.z());
 
+  std::cerr << "Move Base Goal: " << goal_msg.target_pose.pose.position.x << " ";
+  std::cerr << goal_msg.target_pose.pose.position.y << " ";
+  std::cerr << goal_msg.target_pose.pose.orientation << std::endl;
+
   return goal_msg;
 }
 

@@ -9,12 +9,12 @@ Eigen::aligned_allocator<std::pair<Eigen::Vector3f,Eigen::Vector3f> > > Vector3f
 typedef std::vector<std::string> StringVector;
 
 struct ScoredPose {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    bool operator<(const ScoredPose& sc) const {
-      return score < sc.score;
-    }
-    float score;
-    Eigen::Vector3f pose;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  bool operator<(const ScoredPose& sc) const {
+    return score < sc.score;
+  }
+  float score;
+  Eigen::Vector3f pose;
 };
 typedef std::priority_queue<ScoredPose> ScoredPoseQueue;
 
@@ -50,9 +50,19 @@ protected:
   ScoredPoseQueue _views;
 
 private:
-  Eigen::Isometry3f transform3d(const Eigen::Vector3f& v){
+  Eigen::Isometry3f v2t(const Eigen::Vector3f& v){
     Eigen::Isometry3f T = Eigen::Isometry3f::Identity();
     T.translation() = Eigen::Vector3f(v.x(),v.y(),0.6);
     T.linear() = Eigen::AngleAxisf(v.z(),Eigen::Vector3f::UnitZ()).matrix();
+    return T;
+  }
+
+  Eigen::Vector3f t2v(const Eigen::Isometry3f& T){
+    Eigen::Vector3f v = Eigen::Vector3f::Zero();
+    v.x() = T.translation().x();
+    v.y() = T.translation().y();
+    Eigen::Vector3f euler = T.linear().eulerAngles(0,1,2);
+    v.z() = euler.z();
+    return v;
   }
 };

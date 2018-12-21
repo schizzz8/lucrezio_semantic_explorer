@@ -61,9 +61,11 @@ Isometry3fVector SemanticExplorer::generateCandidateViews(const ObjectPtr& neare
     float y=_radius*sin(alpha);
     float theta=atan2(-y,-x);
 
-    Eigen::Isometry3f T=Eigen::Isometry3f::Identity();
-    T.translation() = Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,0.6);
-    T.linear() = Eigen::AngleAxisf(theta,Eigen::Vector3f::UnitZ()).matrix();
+//    Eigen::Isometry3f T=Eigen::Isometry3f::Identity();
+//    T.translation() = Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,0.6);
+//    T.linear() = Eigen::AngleAxisf(theta,Eigen::Vector3f::UnitZ()).matrix();
+
+    Eigen::Isometry3f T = v2t(Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,theta));
 
     candidate_views.push_back(T);
   }
@@ -148,7 +150,7 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
     }
     ScoredPose view;
     view.score = unn;
-    view.pose = T.translation();
+    view.pose = t2v(T);
     _views.push(view);
     rays.clear();
   }
