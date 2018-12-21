@@ -6,6 +6,7 @@ typedef std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> >
 typedef std::vector<Eigen::Isometry3f, Eigen::aligned_allocator<Eigen::Isometry3f> > Isometry3fVector;
 typedef std::vector<std::pair<Eigen::Vector3f,Eigen::Vector3f>,
 Eigen::aligned_allocator<std::pair<Eigen::Vector3f,Eigen::Vector3f> > > Vector3fPairVector;
+typedef std::vector<std::string> StringVector;
 
 struct ScoredPose {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -28,14 +29,12 @@ public:
 
   void setObjects(const ObjectPtrVector& semantic_map);
 
-  bool findNearestObject();
+  bool findNearestObject(ObjectPtr& nearest_object);
 
-  Vector3fVector computePoses();
-  void computeNBV();
+  Isometry3fVector generateCandidateViews(const ObjectPtr& nearest_object);
+  void computeNBV(const Isometry3fVector& candidate_views, const ObjectPtr& nearest_object);
 
-  void setProcessed();
-
-  inline const ObjectPtr& nearestObject() const {return _nearest_object;}
+  void setProcessed(const ObjectPtr& nearest_object);
 
   inline const Vector3fPairVector& rays() const {return _rays;}
 
@@ -43,9 +42,10 @@ public:
 
 protected:
   Eigen::Isometry3f _camera_pose;
-  ObjectPtrSet _objects;
-  ObjectPtrSet _processed;
-  ObjectPtr _nearest_object;
+  StringObjectPtrMap _objects;
+  StringVector _processed;
+  int _N;
+  float _radius;
   Vector3fPairVector _rays;
   ScoredPoseQueue _views;
 
