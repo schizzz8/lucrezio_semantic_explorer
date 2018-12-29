@@ -6,7 +6,7 @@ SemanticExplorer::SemanticExplorer(){
   _camera_pose.setIdentity();
   _objects.clear();
   _processed.clear();
-  _N=4;
+  _N=4;         //Number of NBV candidates
   _radius=1.0;
 }
 
@@ -64,6 +64,33 @@ Isometry3fVector SemanticExplorer::generateCandidateViews(const ObjectPtr& neare
 //    Eigen::Isometry3f T=Eigen::Isometry3f::Identity();
 //    T.translation() = Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,0.6);
 //    T.linear() = Eigen::AngleAxisf(theta,Eigen::Vector3f::UnitZ()).matrix();
+
+    Eigen::Isometry3f T = v2t(Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,theta));
+
+    candidate_views.push_back(T);
+  }
+
+  return candidate_views;
+}
+
+Isometry3fVector SemanticExplorer::generateCandidateViews_Jose(const ObjectPtr& nearest_object){
+  if(!nearest_object){
+    throw std::runtime_error("[SemanticExplorer][computePoses]: no nearest object!");
+  }
+
+  Eigen::Vector3f squaredDistances;
+  float OFFSET = 0.1;
+  float CLEARANCE = 0.4;
+  Isometry3fVector candidate_views;
+  squaredDistances[0]=pow(nearest_object->position().x()-(nearest_object->max()[0]+OFFSET),2);
+  squaredDistances[1]=pow(nearest_object->position().y()-(nearest_object->max()[1]+OFFSET),2);
+  float _radius=sqrt(squaredDistances[0]+squaredDistances[1])+CLEARANCE;
+
+  for(int i=0; i<8; i++){
+    float alpha=i*(2*M_PI/((float)8));
+    float x=_radius*cos(alpha);
+    float y=_radius*sin(alpha);
+    float theta=atan2(-y,-x);
 
     Eigen::Isometry3f T = v2t(Eigen::Vector3f(nearest_object->position().x()+x,nearest_object->position().y()+y,theta));
 
@@ -161,8 +188,6 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
   //  pcl::io::savePCDFileASCII("fre_cloud.pcd", *_nearest_object->freVoxelCloud());
   //  serializeRays(_rays,"rays.txt");
 }
-
-
 
 /*------------------------NBV_Jose------------------------*/
 
@@ -281,7 +306,7 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
     octomap::Pointcloud backgroundWall;     //  Pointcloud holding the background wall
 
     //  distance will be computed so that the wall is always behind the object
-    //  distance = 2D_Distance-sensorOrigin-Centroid + 2D_Distance-Centroid-FarthermostPointInBBox + offset
+    //  distance = 2D_Distance-Centroid-FarthermostPointInBBox + offset + 2D_Distance-sensorOrigin-Centroid 
     float OFFSET=0.2;
     Eigen::Vector3f squaredDistances;
     squaredDistances[0]=pow(centroid(0)-(max[0]+OFFSET),2);
@@ -403,16 +428,16 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 
     }
     std::cerr << "[SemanticExplorer][computeNBV_Jose]: Raytracing... "<< std::endl;
-    for(int i=0;i<NBV_CANDIDATENUMBER;i++){
-
+    for(int i=0;i<candidate_views.size();i++){
+        const Eigen::Isometry3f& T = candidate_views[i];
         /* 	The Pointcloud representing the FoV of the kinect is rotated and translated
                 so that computeRayKeys can raytrace from the NBVcandidate position until
                 each of this Pointcloud points.    */
-
-        iterator.x()=Candidates[i][0]=centroid(0)+((distanceNBV_centroid+NBV_DISTANCE)*sin(AngleBetweenCandidate*i));       // [x]
-        iterator.y()=Candidates[i][1]=centroid(1)+((distanceNBV_centroid+NBV_DISTANCE)*cos(AngleBetweenCandidate*i));       // [y]
-        iterator.z()=Candidates[i][2]=centroid(2);                                          // [z]
-        Candidates[i][3]=atan2(-Candidates[i][1]+centroid(1),-Candidates[i][0]+centroid(0));      //  [roll]
+        
+        iterator.x()=Candidates[i][0]=T.translation().x();       // [x]
+        iterator.y()=Candidates[i][1]=T.translation().y();       // [y]
+        iterator.z()=Candidates[i][2]=T.translation().z();                                          // [z]
+        Candidates[i][3]=T.linear().eulerAngles(0, 1, 2)[2];
         Candidates[i][4]=0;		//	Set 0 the candidates Occlussion Aware VI
         octomath::Vector3 Translation2(iterator.x(),iterator.y(),iterator.z());		//	Vector with the NBVcandidate coordinates
         octomath::Quaternion Rotation2(0,0,Candidates[i][3]);		//	Quaternion containing the roll of NBVcandidate
@@ -425,7 +450,7 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 	
 
         //  Occlussion Aware VI is used as method to compute "how good" is a candidate
-        octomap::KeyRay rayBeam;		//	Contains the position of each voxel in a ray
+        octomap::KeyRay rayBeam; 		//	Contains the position of each voxel in a ray
         int unknownVoxelsInRay=0;		//	Counter of unknown voxels found in a ray
         for(int ii=0;ii<variablePointwall.size();ii++){		//	iterate over all the pointwall
             bool Continue=true;		//	Boolean needed to stop searching when the ray hits a known occupied voxel

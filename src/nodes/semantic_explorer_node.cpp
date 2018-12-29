@@ -76,10 +76,11 @@ int main(int argc, char **argv){
       }
 
       //generate candidate views
-      Isometry3fVector candidate_views = explorer.generateCandidateViews(nearest_object);
+      Isometry3fVector candidate_views = explorer.generateCandidateViews_Jose(nearest_object);
 
       //compute NBV
-      explorer.computeNBV_Jose(candidate_views,nearest_object);     //computeNBV_Jose
+      ROS_INFO("ComputeNBV candidates!");
+      explorer.computeNBV(candidate_views,nearest_object);
       ScoredPoseQueue tmp_q = explorer.views();
       bool reached=false;
       while(!tmp_q.empty() && !reached){
