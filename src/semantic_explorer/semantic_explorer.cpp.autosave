@@ -6,7 +6,7 @@ SemanticExplorer::SemanticExplorer(){
   _camera_pose.setIdentity();
   _objects.clear();
   _processed.clear();
-  _N=4;
+  _N=8;         //Number of NBV candidates
   _radius=1.0;
 }
 
