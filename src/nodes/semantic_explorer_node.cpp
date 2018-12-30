@@ -10,6 +10,7 @@
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+
 bool listenRobotPose(Eigen::Isometry3f &robot_pose);
 bool receiveSemanticMap(int &num_models,ObjectPtrVector& semantic_map);
 
@@ -34,6 +35,14 @@ int main(int argc, char **argv){
 
   SemanticExplorer explorer;
   int unn_threshold;
+  /*-------------------------*/
+
+  Isometry3fVector candidate_views;
+  std::vector<Isometry3fVector> candidate_views_list;
+  std::vector<std::string> processed_objects_list;
+  std::vector<int> scored_candidate_views;
+
+  /*-------------------------*/
 
   while(!listenRobotPose(robot_pose) || !receiveSemanticMap(num_models,semantic_map)){
     ROS_INFO("Waiting to for robot_pose and semantic_map to start exploration...");
@@ -53,7 +62,9 @@ int main(int argc, char **argv){
       continue;
     }
     std::cerr << "Processing: " << nearest_object->model() << std::endl;
-
+    
+    
+    
     bool reconstructed=false;
     while(!reconstructed){
       //listen robot pose
@@ -74,13 +85,26 @@ int main(int argc, char **argv){
         std::cerr << "Num models: " << num_models << std::endl;
         explorer.setObjects(semantic_map);
       }
-
-      //generate candidate views
-      Isometry3fVector candidate_views = explorer.generateCandidateViews_Jose(nearest_object);
-
+      /*****************************/
+      int object_number=0;
+      auto pos = std::find(processed_objects_list.begin(),processed_objects_list.end(),nearest_object->model());
+      if (pos != processed_objects_list.end()){
+        object_number = std::distance(processed_objects_list.begin(), pos);
+        std::cerr << "Model " << nearest_object->model() << "previously processed, stored in " << object_number <<std::endl;
+        candidate_views=candidate_views_list[object_number];
+       
+      } else { 
+        std::cerr << "First time running the model" << nearest_object->model() << "generating CandidateViews... " << std::endl;
+        //generate candidate views
+        candidate_views = explorer.generateCandidateViews_Jose(nearest_object);
+        candidate_views_list.push_back(candidate_views);
+        processed_objects_list.push_back(nearest_object->model());
+        std::cerr << "storing object in: " << processed_objects_list.size()-1 << " and candidates in " << candidate_views_list.size()-1 << std::endl;
+      }
+     /*****************************/
       //compute NBV
-      ROS_INFO("ComputeNBV candidates!");
-      explorer.computeNBV(candidate_views,nearest_object);
+      ROS_INFO("evaluate NBV candidates!");
+      scored_candidate_views = explorer.computeNBV_Jose(candidate_views,nearest_object);
       ScoredPoseQueue tmp_q = explorer.views();
       bool reached=false;
       while(!tmp_q.empty() && !reached){
@@ -116,6 +140,16 @@ int main(int argc, char **argv){
         if (finished_before_timeout){
           actionlib::SimpleClientGoalState state = ac.getState();
           ROS_INFO("Action finished: %s",state.toString().c_str());
+          auto pos = std::find(scored_candidate_views.begin(),scored_candidate_views.end(),unn);
+          if (pos != scored_candidate_views.end()){
+            int index = std::distance(scored_candidate_views.begin(), pos);
+            std::cerr<< "Viewscore found, we are deleting the view: " << index << std::endl;
+            scored_candidate_views.erase(scored_candidate_views.begin() + index);
+            candidate_views_list[object_number].erase(candidate_views_list[object_number].begin() + index);
+          } else {
+            ROS_INFO("Something went wrong... again.");
+          }
+
           if(state.toString() == "SUCCEEDED")
             reached=true;
           if(state.toString() == "ABORTED")

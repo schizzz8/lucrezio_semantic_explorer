@@ -77,7 +77,7 @@ Isometry3fVector SemanticExplorer::generateCandidateViews_Jose(const ObjectPtr& 
   if(!nearest_object){
     throw std::runtime_error("[SemanticExplorer][computePoses]: no nearest object!");
   }
-
+  
   Eigen::Vector3f squaredDistances;
   float OFFSET = 0.1;
   float CLEARANCE = 0.4;
@@ -191,7 +191,7 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
 
 /*------------------------NBV_Jose------------------------*/
 
-void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, const ObjectPtr& nearest_object){
+std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, const ObjectPtr& nearest_object){
   if(candidate_views.empty())
     throw std::runtime_error("[SemanticExplorer][computeNBV_Jose]: no candidate views!");
 
@@ -347,7 +347,7 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 
     tree.insertPointCloud(backgroundWall,sensorOrigin);     //  Check if i can use other than scan, since it contains the cloud
     //  tree.insertPointCloud(pointwallSensor,sensorOrigin);     //  PW inserted for visualizing the FoV from the sensorOrigin
-    //  tree.writeBinary("check.bt");       //  Visualize "check.bt" with octovis
+    tree.writeBinary("check.bt");       //  Visualize "check.bt" with octovis
 
     //>>>>>>>>>> Search for unknown voxels <<<<<<<<<<
 
@@ -383,14 +383,14 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 
     }
 
-    //cloudAndUnknown.writeBinary("check.bt");       //  Visualize the pointcloud with the unknown voxels
+    cloudAndUnknown.writeBinary("check_unknown.bt");       //  Visualize the pointcloud with the unknown voxels
 
     //>>>>>>>>>> Compute Next Best View candidates <<<<<<<<<<
 
     /*  The candidates will be computed at a constant distance from the object, all the views
             will be pointing towards the centroid of the cloud. The candidates are computed in Z=0
             by circular tessellation. Further updates will include sphere tessellation for 3D NBV.    */
-
+    std::vector<int> scored_candidate_poses;
     int NBV_CANDIDATENUMBER=8;		//  Number of candidates
     float AngleBetweenCandidate=6.2832/NBV_CANDIDATENUMBER;		//	AngleBetweenCandidate= 360 degrees (2*pi)/ Number of candidates
     float Candidates [NBV_CANDIDATENUMBER][5];		//	Array holding NBV candidates position [x,y,z],roll, and Occlussion Aware VI
@@ -487,10 +487,11 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 
         }
 
-        std::cout<< std::endl<<"from (" << Candidates[i][0] << ") ("<< Candidates[i][1] << ") ("<< Candidates[i][2]<< " Angle: "<< Candidates[i][3]<<" VI: "<<Candidates[i][4];
+        std::cout<< std::endl<<"from (" << Candidates[i][0] << ") ("<< Candidates[i][1] << ") ("<< Candidates[i][2]<< ") Angle: "<< Candidates[i][3]<<" VI: "<<Candidates[i][4];
         ScoredPose view;
-        view.score = Candidates[i][4];
+        view.score = (int)Candidates[i][4];
         Eigen::Vector3f NBVpos;
+        scored_candidate_poses.push_back(Candidates[i][4]);
         NBVpos[0]=Candidates[i][0];
         NBVpos[1]=Candidates[i][1];
         NBVpos[2]=Candidates[i][3];     // just need 2D
@@ -509,7 +510,7 @@ void SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, 
 
     //	Print NBV
     std::cout<< std::endl<<"NEXT BEST VIEW IS (" << Candidates[iNBV][0] << ") ("<< Candidates[iNBV][1] << ") ("<< Candidates[iNBV][2]<<")";
-
+  return scored_candidate_poses;
 }
 
 /*-----------------------/NBV_Jose/-----------------------*/
