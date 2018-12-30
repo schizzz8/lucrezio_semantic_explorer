@@ -383,7 +383,7 @@ std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candi
 
     }
 
-    cloudAndUnknown.writeBinary("check_unknown.bt");       //  Visualize the pointcloud with the unknown voxels
+    //cloudAndUnknown.writeBinary("check_unknown.bt");       //  Visualize the pointcloud with the unknown voxels
 
     //>>>>>>>>>> Compute Next Best View candidates <<<<<<<<<<
 
