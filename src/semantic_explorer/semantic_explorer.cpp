@@ -80,7 +80,7 @@ Isometry3fVector SemanticExplorer::generateCandidateViews_Jose(const ObjectPtr& 
   
   Eigen::Vector3f squaredDistances;
   float OFFSET = 0.1;
-  float CLEARANCE = 0.4;
+  float CLEARANCE = 0.6;
   Isometry3fVector candidate_views;
   squaredDistances[0]=pow(nearest_object->position().x()-(nearest_object->max()[0]+OFFSET),2);
   squaredDistances[1]=pow(nearest_object->position().y()-(nearest_object->max()[1]+OFFSET),2);
@@ -191,7 +191,7 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
 
 /*------------------------NBV_Jose------------------------*/
 
-std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, const ObjectPtr& nearest_object){
+std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candidate_views, const ObjectPtr& nearest_object, octomap::OcTree& unknown){
   if(candidate_views.empty())
     throw std::runtime_error("[SemanticExplorer][computeNBV_Jose]: no candidate views!");
 
@@ -219,7 +219,7 @@ std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candi
 
     octomap::Pointcloud scan;       //  Pointcloud will hold the .pcd information
     float MIN_RESOLUTION = 0.02;
-    octomap::OcTree tree (MIN_RESOLUTION),cloudAndUnknown (MIN_RESOLUTION);
+    octomap::OcTree tree (MIN_RESOLUTION),cloudAndUnknown (MIN_RESOLUTION), unknownCloud(MIN_RESOLUTION);
 
     for (size_t i = 0; i < cloud->points.size (); ++i){     //  Iterate over the loaded .pcd file
 
@@ -347,7 +347,17 @@ std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candi
 
     tree.insertPointCloud(backgroundWall,sensorOrigin);     //  Check if i can use other than scan, since it contains the cloud
     //  tree.insertPointCloud(pointwallSensor,sensorOrigin);     //  PW inserted for visualizing the FoV from the sensorOrigin
-    tree.writeBinary("check.bt");       //  Visualize "check.bt" with octovis
+    //  tree.writeBinary("check.bt");       //  Visualize "check.bt" with octovis
+    bool searchOnlyInNewCloud=false;
+    if (unknown.getRoot()==NULL){
+      std::cerr << "[SemanticExplorer][computeNBV_Jose]: This is your first time, right? "<< std::endl;
+      searchOnlyInNewCloud=true;
+    } else {
+      std::cerr << "[SemanticExplorer][computeNBV_Jose]: This is NOT your first time, right? "<< std::endl; 
+      searchOnlyInNewCloud=false;
+    }
+    
+
 
     //>>>>>>>>>> Search for unknown voxels <<<<<<<<<<
 
@@ -361,30 +371,49 @@ std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candi
 
             for (float iz = min[2]-OFFSET; iz < max[2]+OFFSET; iz += RESOLUTION){
 
-                if (tree.search(ix,iy,iz)==NULL){		//	If ==NULL it did not find any known (occupied or empty) voxel
+                if (searchOnlyInNewCloud && tree.search(ix,iy,iz)==NULL){		//	If ==NULL it did not find any known (occupied or empty) voxel
 
+                    //check if the unknown voxel was previously seen 
                     //	Add a voxel in the empty position in the cloudAndUnknown OcTree
                     iterator.x()=ix;
                     iterator.y()=iy;
                     iterator.z()=iz;
-
-                    octomap::OcTreeNode * unknownCloud=cloudAndUnknown.updateNode(iterator,false);  //  Compose tree needed for NBV computation
-
+                    
+                    octomap::OcTreeNode * unknownCloudnodes=cloudAndUnknown.updateNode(iterator,false);  //  Compose tree needed for NBV computation
+                    octomap::OcTreeNode * unknownCloudnodes2=unknownCloud.updateNode(iterator,false);
                     /*  The number 24(random) is saved on each cloud voxel, so that when rayCast
                             finds the node I can check if ==24 I found an unknown voxel */
 
-                    unknownCloud->setValue(24);
+                    unknownCloudnodes->setValue(24);
+                    unknownCloudnodes2->setValue(25);
 
+                } 
+                else if (!searchOnlyInNewCloud && tree.search(ix,iy,iz)==NULL && !(unknown.search(ix,iy,iz)==NULL)) {
+                  
+                    //	Add a voxel in the empty position in the cloudAndUnknown OcTree
+                    iterator.x()=ix;
+                    iterator.y()=iy;
+                    iterator.z()=iz;
+                    
+                    octomap::OcTreeNode * unknownCloudnodes=cloudAndUnknown.updateNode(iterator,false);  //  Compose tree needed for NBV computation
+                    octomap::OcTreeNode * unknownCloudnodes2=unknownCloud.updateNode(iterator,false);
+                    /*  The number 24(random) is saved on each cloud voxel, so that when rayCast
+                            finds the node I can check if ==24 I found an unknown voxel */
+
+                    unknownCloudnodes->setValue(24);
+                    unknownCloudnodes2->setValue(25);
                 }
+                
 
             }
 
         }
 
     }
+    unknown.swapContent(unknownCloud);
 
-    //cloudAndUnknown.writeBinary("check_unknown.bt");       //  Visualize the pointcloud with the unknown voxels
-
+    unknown.writeBinary("malaka_check_unknown.bt");       //  Visualize the pointcloud with the unknown voxels
+    //unknownCloud.writeBinary("chekmebaby.bt");
     //>>>>>>>>>> Compute Next Best View candidates <<<<<<<<<<
 
     /*  The candidates will be computed at a constant distance from the object, all the views
@@ -509,7 +538,7 @@ std::vector<int> SemanticExplorer::computeNBV_Jose(const Isometry3fVector& candi
     }
 
     //	Print NBV
-    std::cout<< std::endl<<"NEXT BEST VIEW IS (" << Candidates[iNBV][0] << ") ("<< Candidates[iNBV][1] << ") ("<< Candidates[iNBV][2]<<")";
+    std::cout<< std::endl<<"NEXT BEST VIEW IS (" << Candidates[iNBV][0] << ") ("<< Candidates[iNBV][1] << ") ("<< Candidates[iNBV][2]<<")"<< std::endl;
   return scored_candidate_poses;
 }
 

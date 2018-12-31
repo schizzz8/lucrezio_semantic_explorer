@@ -34,13 +34,15 @@ int main(int argc, char **argv){
   ObjectPtrVector semantic_map;
 
   SemanticExplorer explorer;
-  int unn_threshold;
+  int unn_threshold=100;
   /*-------------------------*/
 
   Isometry3fVector candidate_views;
   std::vector<Isometry3fVector> candidate_views_list;
   std::vector<std::string> processed_objects_list;
   std::vector<int> scored_candidate_views;
+  octomap::OcTree unknown(0.02);
+  std::vector<octomap::OcTree> unknown_octree_list;
 
   /*-------------------------*/
 
@@ -104,7 +106,7 @@ int main(int argc, char **argv){
      /*****************************/
       //compute NBV
       ROS_INFO("evaluate NBV candidates!");
-      scored_candidate_views = explorer.computeNBV_Jose(candidate_views,nearest_object);
+      scored_candidate_views = explorer.computeNBV_Jose(candidate_views,nearest_object, unknown);
       ScoredPoseQueue tmp_q = explorer.views();
       bool reached=false;
       while(!tmp_q.empty() && !reached){
@@ -121,7 +123,9 @@ int main(int argc, char **argv){
           reconstructed = true;
           ROS_INFO("%s: processed!",nearest_object->model().c_str());
           explorer.setProcessed(nearest_object);
+          unknown.clear();
           break;
+          
         }
 
         //visualize next pose (RViz)
@@ -159,6 +163,7 @@ int main(int argc, char **argv){
       }
       if(tmp_q.empty()){
         reconstructed = true;
+        unknown.clear();
         ROS_INFO("%s: processed!",nearest_object->model().c_str());
         explorer.setProcessed(nearest_object);
       }
