@@ -54,6 +54,13 @@ Isometry3fVector SemanticExplorer::generateCandidateViews(const ObjectPtr& neare
   if(!nearest_object)
     throw std::runtime_error("[SemanticExplorer][computePoses]: no nearest object!");
 
+  Eigen::Vector2f squared_distances = Eigen::Vector2f::Zero();
+  const float OFFSET = 0.1;
+  const float CLEARANCE = 0.6;
+  squared_distances[0]=pow(nearest_object->position().x()-(nearest_object->max().x()+OFFSET),2);
+  squared_distances[1]=pow(nearest_object->position().y()-(nearest_object->max().y()+OFFSET),2);
+  _radius=sqrt(squared_distances[0]+squared_distances[1])+CLEARANCE;
+
   Isometry3fVector candidate_views;
   for(int i=0; i<_N; i++){
     float alpha=i*(2*M_PI/(float)_N);
@@ -113,7 +120,7 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
         //compute ray endpoint
         end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
         end.normalize();
-        end=5*end;
+        end=2*_radius*end; //setting the ray max length as twice the radius (see generateCandidateViews)
         end=camera_offset*end;
         end=T*end;
         octomap::point3d dir(end.x(),end.y(),end.z());
@@ -126,19 +133,21 @@ void SemanticExplorer::computeNBV(const Isometry3fVector& candidate_views, const
         if(nearest_object->octree()->computeRay(origin,dir,ray)){
           for(const octomap::point3d voxel : ray){
 
-            if(!nearest_object->inRange(voxel.x(),voxel.y(),voxel.z()))
+            if(!nearest_object->inRange(voxel.x(),voxel.y(),voxel.z(),0.1)) //checking if voxel in in object BB with an OFFSET
               continue;
 
             octomap::OcTreeNode* n = nearest_object->octree()->search(voxel);
             if(n){
-              double value = n->getOccupancy();
-              if(value>0.5)
+              if(nearest_object->octree()->isNodeOccupied(n)){
                 occ++;
+                break;
+              }
               else
                 fre++;
-              break;
-            } else
+            } else{
               unn++;
+            }
+
           }
         }
       }
